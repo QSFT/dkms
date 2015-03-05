@@ -1,3 +1,10 @@
+dkms (2.2.1.0) precise; urgency=medium
+
+  * Fix update-initramfs during automatic rebuild after new kernel installation
+  * Change packaging process (Removed some unused variables, change build and out directory.)
+
+ -- Roman Fortunatov <roman.fortunatov@softheme.com>  Tue, 10 Mar 2015 12:48:31 +0200
+
 dkms (2.2.0.1-0ubuntu1) oneiric; urgency=low
 
   * New upstream version.  Bugs fixed in Ubuntu:

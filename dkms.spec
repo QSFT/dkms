@@ -2,10 +2,16 @@
 %define _sharedstatedir /var/lib
 %endif
 
+%if 0%{?fedora} >= 20 || 0%{?rhel} >= 7
+%define _package_name_prefix systemd
+%else
+%define _package_name_prefix sysv
+%endif
+
 Summary: Dynamic Kernel Module Support Framework
 Name: dkms
 Version: [INSERT_VERSION_HERE]
-Release: 1%{?dist}
+Release: 1.%{_package_name_prefix}
 License: GPLv2+
 Group: System Environment/Base
 BuildArch: noarch
@@ -43,10 +49,6 @@ Requires(post):         /sbin/chkconfig
 Requires(preun):        /sbin/chkconfig
 Requires(preun):        /sbin/service
 Requires(postun):       /sbin/service
-%endif
-
-%if 0%{?fedora}
-Requires: kernel-devel
 %endif
 
 %description
@@ -108,16 +110,27 @@ echo ""
 
 %install
 rm -rf $RPM_BUILD_ROOT
-make install-redhat DESTDIR=$RPM_BUILD_ROOT \
+%if 0%{?fedora} >= 20 || 0%{?rhel} >= 7
+make install-redhat-systemd DESTDIR=$RPM_BUILD_ROOT \
     SBIN=$RPM_BUILD_ROOT%{_sbindir} \
     VAR=$RPM_BUILD_ROOT%{_localstatedir}/lib/%{name} \
     MAN=$RPM_BUILD_ROOT%{_mandir}/man8 \
     ETC=$RPM_BUILD_ROOT%{_sysconfdir}/%{name} \
     BASHDIR=$RPM_BUILD_ROOT%{_sysconfdir}/bash_completion.d \
     LIBDIR=$RPM_BUILD_ROOT%{_prefix}/lib/%{name}
+%else
+make install-redhat-sysv DESTDIR=$RPM_BUILD_ROOT \
+    SBIN=$RPM_BUILD_ROOT%{_sbindir} \
+    VAR=$RPM_BUILD_ROOT%{_localstatedir}/lib/%{name} \
+    MAN=$RPM_BUILD_ROOT%{_mandir}/man8 \
+    ETC=$RPM_BUILD_ROOT%{_sysconfdir}/%{name} \
+    BASHDIR=$RPM_BUILD_ROOT%{_sysconfdir}/bash_completion.d \
+    LIBDIR=$RPM_BUILD_ROOT%{_prefix}/lib/%{name}
+%endif
 
 %clean
 rm -rf $RPM_BUILD_ROOT
+
 
 %if 0%{?fedora} >= 20 || 0%{?rhel} >= 7
 
@@ -145,10 +158,11 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %doc sample.spec sample.conf AUTHORS COPYING README.dkms
-#%if 0%{?fedora} >= 20 || 0%{?rhel} >= 7
+%if 0%{?fedora} >= 20 || 0%{?rhel} >= 7
 %{_unitdir}/%{name}.service
-#%endif
+%else
 %{_initrddir}/%{name}_autoinstaller
+%endif
 %{_prefix}/lib/%{name}
 %{_mandir}/*/*
 %{_sbindir}/%{name}
@@ -491,9 +505,6 @@ rm -rf $RPM_BUILD_ROOT
 - mkrpm handles --source-only
 - Updated manpage
 
-* Fri Jun 17 2004 Gary Lerhaupt <gary_lerhaupt@dell.com> 1.93.04-1
-- Started adding mkrpm
-
 * Wed Jun 16 2004 Gary Lerhaupt <gary_lerhaupt@dell.com> 1.93.01-1
 - Fixed dkms_autoinstaller bugs (thanks Vladimir Simonov)
 - Fixed paths in the tarball's install.sh
@@ -642,12 +653,6 @@ rm -rf $RPM_BUILD_ROOT
 * Fri Nov 07 2003 Gary Lerhaupt <gary_lerhaupt@dell.com> 0.45.01-1
 - Added kernel config prepping for hugemem kernel (thanks Amit Bhutani)
 - modules.conf only now gets changed during install or uninstall of active module
-
-* Tue Nov 03 2003 Gary Lerhaupt <gary_lerhaupt@dell.com> 0.44.05-1
-- Changed MODULES_CONF_ALIAS_TYPE to an array in dkms.conf
-- Added MODULES_CONF_OBSOLETES array in dkms.conf
-- Reworked modules_conf_modify to make use of OBSOLETES logic
-- Updated man page
 
 * Fri Oct 31 2003 Gary Lerhaupt <gary_lerhaupt@dell.com> 0.42.03-1
 - Added --binaries-only option to mktarball
@@ -810,10 +815,6 @@ rm -rf $RPM_BUILD_ROOT
 
 * Wed May 14 2003 Gary Lerhaupt <gary_lerhaupt@dell.com> 0.28.05-1
 - Fixed a typo in the man page.
-
-* Tue May 05 2003 Gary Lerhaupt <gary_lerhaupt@dell.com> 0.28.04-1
-- Fixed ldtarball/mktarball to obey source_tree & dkms_tree (Reported By: Jordan Hargrave <jordan_hargrave@dell.com>)
-- Added DKMS mailing list to man page
 
 * Tue Apr 29 2003 Gary Lerhaupt <gary_lerhaupt@dell.com> 0.27.05-1
 - Changed NEEDED_FOR_BOOT to REMAKE_INITRD as this makes more sense
