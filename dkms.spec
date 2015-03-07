@@ -11,13 +11,13 @@
 Summary: Dynamic Kernel Module Support Framework
 Name: dkms
 Version: [INSERT_VERSION_HERE]
-Release: 1.%{_package_name_prefix}
+Release: %{_package_name_prefix}
 License: GPLv2+
 Group: System Environment/Base
 BuildArch: noarch
 URL: http://linux.dell.com/dkms
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-Source0: http://linux.dell.com/dkms/permalink/dkms-%{version}.tar.gz
+Source0: dists/%{name}-%{version}.tar.gz
 # because Mandriva calls this package dkms-minimal
 Provides: dkms-minimal = %{version}
 
