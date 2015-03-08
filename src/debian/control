@@ -19,6 +19,7 @@ Depends: ${misc:Depends},
  make | build-essential | dpkg-dev,
  coreutils (>= 7.4),
  patch
+Provides: dkms
 Recommends: fakeroot,
  menu | sudo
 Suggests: dpkg-dev, debhelper

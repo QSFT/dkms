@@ -1,23 +1,23 @@
-%if 0%{?rhel} == 5
-%define _sharedstatedir /var/lib
+%if 0%{?fedora} >= 20 || 0%{?rhel} >= 7
+%define _package_name_suffix systemd
+%else
+%define _package_name_suffix sysv
 %endif
 
-%if 0%{?fedora} >= 20 || 0%{?rhel} >= 7
-%define _package_name_prefix systemd
-%else
-%define _package_name_prefix sysv
+%if 0%{?rhel} == 5
+%define _sharedstatedir /var/lib
 %endif
 
 Summary: Dynamic Kernel Module Support Framework
 Name: dkms
 Version: [INSERT_VERSION_HERE]
-Release: %{_package_name_prefix}
+Release: %{_package_name_suffix}
 License: GPLv2+
 Group: System Environment/Base
 BuildArch: noarch
 URL: http://linux.dell.com/dkms
-BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-Source0: dists/%{name}-%{version}.tar.gz
+BuildRoot: %{_topdir}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+Source0: %{_topdir}SOURCES/%{name}-%{version}.tar.gz
 # because Mandriva calls this package dkms-minimal
 Provides: dkms-minimal = %{version}
 
@@ -116,7 +116,7 @@ make install-redhat-systemd DESTDIR=$RPM_BUILD_ROOT \
     MAN=$RPM_BUILD_ROOT%{_mandir}/man8 \
     ETC=$RPM_BUILD_ROOT%{_sysconfdir}/%{name} \
     BASHDIR=$RPM_BUILD_ROOT%{_sysconfdir}/bash_completion.d \
-    LIBDIR=$RPM_BUILD_ROOT%{_prefix}/lib/%{name}
+    LIBDIR=$RPM_BUILD_ROOT%{_prefix}/lib/%{name} \
 %else
 make install-redhat-sysv DESTDIR=$RPM_BUILD_ROOT \
     SBIN=$RPM_BUILD_ROOT%{_sbindir} \
@@ -124,12 +124,11 @@ make install-redhat-sysv DESTDIR=$RPM_BUILD_ROOT \
     MAN=$RPM_BUILD_ROOT%{_mandir}/man8 \
     ETC=$RPM_BUILD_ROOT%{_sysconfdir}/%{name} \
     BASHDIR=$RPM_BUILD_ROOT%{_sysconfdir}/bash_completion.d \
-    LIBDIR=$RPM_BUILD_ROOT%{_prefix}/lib/%{name}
+    LIBDIR=$RPM_BUILD_ROOT%{_prefix}/lib/%{name} \
 %endif
 
 %clean
 rm -rf $RPM_BUILD_ROOT
-
 
 %if 0%{?fedora} >= 20 || 0%{?rhel} >= 7
 
@@ -157,11 +156,13 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %doc sample.spec sample.conf AUTHORS COPYING README.dkms
+
 %if 0%{?fedora} >= 20 || 0%{?rhel} >= 7
 %{_unitdir}/%{name}.service
 %else
 %{_initrddir}/%{name}_autoinstaller
 %endif
+
 %{_prefix}/lib/%{name}
 %{_mandir}/*/*
 %{_sbindir}/%{name}
