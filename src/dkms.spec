@@ -19,7 +19,7 @@ URL: http://linux.dell.com/dkms
 BuildRoot: %{_topdir}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Source0: %{_topdir}SOURCES/%{name}-%{version}.tar.gz
 # because Mandriva calls this package dkms-minimal
-Provides: dkms-minimal = %{version}
+Provides: dkms-minimal = %{version}, appassure-dkms = %{version}
 
 Requires: coreutils
 Requires: cpio

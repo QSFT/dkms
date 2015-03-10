@@ -13,6 +13,7 @@ Vcs-Browser: http://linux.dell.com/git/dkms.git
 
 Package: dkms
 Architecture: all
+Provides: dkms, appassure-dkms
 Depends: ${misc:Depends},
  module-init-tools,
  gcc,
