@@ -159,6 +159,9 @@ rm -rf $RPM_BUILD_ROOT
 
 %if 0%{?fedora} >= 20 || 0%{?rhel} >= 7
 %{_unitdir}/%{name}.service
+
+#Temporary hack, before I rework kernel install actions
+%{_initrddir}/%{name}_autoinstaller
 %else
 %{_initrddir}/%{name}_autoinstaller
 %endif
