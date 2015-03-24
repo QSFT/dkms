@@ -28,7 +28,6 @@ Requires: gawk
 Requires: gcc
 Requires: grep
 Requires: gzip
-Requires: kernel-devel
 Requires: sed
 Requires: tar 
 Requires: bash > 1.99
