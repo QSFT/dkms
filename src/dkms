@@ -938,7 +938,6 @@ etc_sysconfig_kernel_modify()
     # Make a temp directory to store files
     local temp_dir_name=$(mktemp_or_die -d $tmp_location/dkms.XXXXXX)
     if [[ $1 = add ]]; then
-        . /etc/sysconfig/kernel
         for m in "${dest_module_name[@]}"; do
             for l in "${INITRD_MODULES}"; do
                 [[ $m = $l ]] && continue 2
