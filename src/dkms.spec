@@ -117,6 +117,7 @@ make install-redhat-systemd DESTDIR=$RPM_BUILD_ROOT \
     ETC=$RPM_BUILD_ROOT%{_sysconfdir}/%{name} \
     BASHDIR=$RPM_BUILD_ROOT%{_sysconfdir}/bash_completion.d \
     LIBDIR=$RPM_BUILD_ROOT%{_prefix}/lib/%{name} \
+    SYSTEMD=$RPM_BUILD_ROOT/usr/lib/systemd/system \
 %else
 make install-redhat-sysv DESTDIR=$RPM_BUILD_ROOT \
     SBIN=$RPM_BUILD_ROOT%{_sbindir} \
