@@ -811,6 +811,7 @@ moduleconfig_update_obsoletes()
     # Do all the changes at once, record the diffs for posterity
     for file in "$@"; do
         [[ $file && -w $file ]] || continue
+        echo
         if [[ $file = /etc/sysconfig/kernel ]]; then
             sed "${sa_sck_o[*]}" "$file" > "$temp_dir_name/${file##*/}.new"
         else
@@ -831,6 +832,7 @@ moduleconfig_add()
 
     local temp_dir_name=$(mktemp_or_die -d $tmp_location/dkms.XXXXXX)
     local -a sa_mc_o=() sa_sck_o=()
+
     modconfig_files="/etc/modprobe.d/dkms.conf
         /etc/modprobe.d/dkms
         /etc/modules.conf
@@ -841,36 +843,42 @@ moduleconfig_add()
     moduleconfig_update_obsoletes $modconfig_files
 
     for moduleconfig in $modconfig_files; do
-    [[ -e $moduleconfig ]] || continue
-    for ((index=0; index < ${#dest_module_name[@]}; index++)); do
+        [[ -e $moduleconfig ]] || continue
 
-        # Only add it if it can't be found already in config file
-        if [[ ${modules_conf_alias_type[$index]} ]] && \
-           ! grep -qs "alias ${modules_conf_alias_type[$index]}[0-9]* ${dest_module_name[$index]}\b" $moduleconfig && \
-           [[ ${modules_conf_obsolete_only[$index]} != yes ]]; then
-            if [[ $modconfig_files = /etc/modprobe.d/$package_name.conf ]] && [[ ! -e /etc/modprobe.d/$package_name.conf ]]; then
-                touch /etc/modprobe.d/$package_name.conf
-                echo $"created /etc/modprobe.d/$package_name.conf.">&2
-            fi
-            aliases=$(awk "/^alias ${modules_conf_alias_type[$index]}/ {print \$2}" $moduleconfig)
-            if [[ $aliases ]]; then
-                alias_number=$(($(echo "$aliases" | sed "s/${modules_conf_alias_type[$index]}//" | sort -n | tail -n 1) + 1))
-            else
-                alias_number=0
-            fi
-            echo -e "alias ${modules_conf_alias_type[$index]}${alias_number} ${dest_module_name[$index]}" >> $moduleconfig
-            echo $"$moduleconfig: added alias reference for '${dest_module_name[$index]}'"
+        # We don't need aliases in syscinfig.
+        if [ $moduleconfig == /etc/sysconfig/kernel ] ; then
+            continue
         fi
-    done
 
-    # Add anything else
-    for ((index=0; index < ${#modules_conf_array[@]}; index++)); do
-        if [ -n "${modules_conf_array[$index]}" ] && \
-        ! grep -q "${modules_conf_array[$index]}" "$moduleconfig"; then
-        echo -e $"$moduleconfig: added '${modules_conf_array[$index]}'"
-        echo -e "${modules_conf_array[$index]}" >> $moduleconfig
-        fi
-    done
+        for ((index=0; index < ${#dest_module_name[@]}; index++)); do
+
+            # Only add it if it can't be found already in config file
+            if [[ ${modules_conf_alias_type[$index]} ]] && \
+            ! grep -qs "alias ${modules_conf_alias_type[$index]}[0-9]* ${dest_module_name[$index]}\b" $moduleconfig && \
+            [[ ${modules_conf_obsolete_only[$index]} != yes ]]; then
+                if [[ $modconfig_files = /etc/modprobe.d/$package_name.conf ]] && [[ ! -e /etc/modprobe.d/$package_name.conf ]]; then
+                    touch /etc/modprobe.d/$package_name.conf
+                    echo $"created /etc/modprobe.d/$package_name.conf.">&2
+                fi
+                aliases=$(awk "/^alias ${modules_conf_alias_type[$index]}/ {print \$2}" $moduleconfig)
+                if [[ $aliases ]]; then
+                    alias_number=$(($(echo "$aliases" | sed "s/${modules_conf_alias_type[$index]}//" | sort -n | tail -n 1) + 1))
+                else
+                    alias_number=0
+                fi
+                echo -e "alias ${modules_conf_alias_type[$index]}${alias_number} ${dest_module_name[$index]}" >> $moduleconfig
+                echo $"$moduleconfig: added alias reference for '${dest_module_name[$index]}'"
+            fi
+        done
+
+        # Add anything else
+        for ((index=0; index < ${#modules_conf_array[@]}; index++)); do
+            if [ -n "${modules_conf_array[$index]}" ] && \
+            ! grep -q "${modules_conf_array[$index]}" "$moduleconfig"; then
+            echo -e $"$moduleconfig: added '${modules_conf_array[$index]}'"
+            echo -e "${modules_conf_array[$index]}" >> $moduleconfig
+            fi
+        done
     done
 
     # Delete the temp dir
