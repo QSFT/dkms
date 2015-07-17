@@ -1402,6 +1402,10 @@ install_module()
     for ((count=0; count < ${#built_module_name[@]}; count++)); do
     echo $""
     echo $"${dest_module_name[$count]}$module_suffix:"
+
+    # Module might already be installed on system earlier and without weak-modules disable. So remove any weak installs for kernel
+    remove_weak_links "$kernelver"
+
     # Check this version against what is already in the kernel
     check_version_sanity "$kernelver" "$arch" "$obsolete_by" "${dest_module_name[$count]}" || continue
 
@@ -1409,6 +1413,8 @@ install_module()
         die 101 $"pre_install failed, aborting install." \
             $"You may override by specifying --force."
     fi
+
+
     local module_count=$(find $lib_tree -name ${dest_module_name[$count]}$module_suffix -type f | wc -l | awk {'print $1'})
     echo $" - Original module"
     if [[ -L $dkms_tree/$module/kernel-$kernelver-$arch && \
@@ -1535,6 +1541,20 @@ list_each_installed_module()
         real_dest_module_location="$(find_actual_dest_module_location $1 $count $2 $3)"
         echo "$install_tree/$2${real_dest_module_location}/${dest_module_name[$count]}$module_suffix"
     done
+}
+
+remove_weak_links()
+{
+    local count
+    local real_dest_module_location
+    for ((count=0; count < ${#built_module_name[@]}; count++)); do
+        weak_link="$install_tree/$1/weak-updates/${dest_module_name[$count]}$module_suffix"
+        if [[ -h $weak_link  ]] ; then
+            echo "Removing weak link in kernel $1 for module ${dest_module_name[$count]}"
+            rm -f $weak_link
+        fi
+    done
+
 }
 
 is_module_added() {
@@ -1669,51 +1689,44 @@ do_uninstall()
         was_active="true"
         echo $""
         echo $"Status: Before uninstall, this module version was ACTIVE on this kernel."
-        # remove kabi-tracking if last instance removed
-	if [ -z "$NO_WEAK_MODULES" ]; then
-	    if [[ ${weak_modules} ]] && (module_status_built $module $module_version |grep -q "installed"); then
-                echo $"Removing any linked weak-modules"
-                list_each_installed_module "$module" "$1" "$2" | ${weak_modules} ${weak_modules_no_initrd} --remove-modules
-            fi
-	fi
 
-    for ((count=0; count < ${#built_module_name[@]}; count++)); do
-        real_dest_module_location="$(find_actual_dest_module_location $module $count $1 $2)"
-        echo $""
-        echo $"${dest_module_name[$count]}$module_suffix:"
-        echo $" - Uninstallation"
-        echo $"   - Deleting from: $install_tree/$1${real_dest_module_location}/"
-        rm -f "$install_tree/$1${real_dest_module_location}/${dest_module_name[$count]}$module_suffix"
-        dir_to_remove="${real_dest_module_location#/}"
-        while [ "${dir_to_remove}" != "${dir_to_remove#/}" ]; do
-            dir_to_remove="${dir_to_remove#/}"
+        for ((count=0; count < ${#built_module_name[@]}; count++)); do
+            real_dest_module_location="$(find_actual_dest_module_location $module $count $1 $2)"
+            echo $""
+            echo $"${dest_module_name[$count]}$module_suffix:"
+            echo $" - Uninstallation"
+            echo $"   - Deleting from: $install_tree/$1${real_dest_module_location}/"
+            rm -f "$install_tree/$1${real_dest_module_location}/${dest_module_name[$count]}$module_suffix"
+            dir_to_remove="${real_dest_module_location#/}"
+            while [ "${dir_to_remove}" != "${dir_to_remove#/}" ]; do
+                dir_to_remove="${dir_to_remove#/}"
+            done
+            (cd "$install_tree/$1" && rmdir --parents --ignore-fail-on-non-empty "${dir_to_remove}" || true)
+            echo $" - Original module"
+            if [[ -e $dkms_tree/$module/original_module/$1/$2/${dest_module_name[$count]}$module_suffix ]]; then
+                case "$running_distribution" in
+                    Debian* | Ubuntu* )
+                        ;;
+                    *)
+                        echo $"   - Archived original module found in the DKMS tree"
+                        echo $"   - Moving it to: $install_tree/$1${DEST_MODULE_LOCATION[$count]}/"
+                        mkdir -p "$install_tree/$1${DEST_MODULE_LOCATION[$count]}/"
+                        mv -f "$dkms_tree/$module/original_module/$1/$2/${dest_module_name[$count]}$module_suffix" \
+                        "$install_tree/$1${DEST_MODULE_LOCATION[$count]}/" 2>/dev/null
+                        ;;
+                esac
+                else
+                echo $"   - No original module was found for this module on this kernel."
+                echo $"   - Use the dkms install command to reinstall any previous module version."
+
+                # Remove modules_conf entries from /etc/modules.conf if remake_initrd is set or if this is last instance removed
+                if [[ $remake_initrd ]] || (do_status $module $module_version | grep -q "installed"); then
+                    echo $""
+                    moduleconfig_remove "$1"
+                fi
+            fi
         done
-        (cd "$install_tree/$1" && rmdir --parents --ignore-fail-on-non-empty "${dir_to_remove}" || true)
-        echo $" - Original module"
-        if [[ -e $dkms_tree/$module/original_module/$1/$2/${dest_module_name[$count]}$module_suffix ]]; then
-            case "$running_distribution" in
-                Debian* | Ubuntu* )
-                    ;;
-                *)
-                    echo $"   - Archived original module found in the DKMS tree"
-                    echo $"   - Moving it to: $install_tree/$1${DEST_MODULE_LOCATION[$count]}/"
-                    mkdir -p "$install_tree/$1${DEST_MODULE_LOCATION[$count]}/"
-                    mv -f "$dkms_tree/$module/original_module/$1/$2/${dest_module_name[$count]}$module_suffix" \
-                    "$install_tree/$1${DEST_MODULE_LOCATION[$count]}/" 2>/dev/null
-                    ;;
-            esac
-            else
-            echo $"   - No original module was found for this module on this kernel."
-            echo $"   - Use the dkms install command to reinstall any previous module version."
-
-            # Remove modules_conf entries from /etc/modules.conf if remake_initrd is set or if this is last instance removed
-            if [[ $remake_initrd ]] || (do_status $module $module_version | grep -q "installed"); then
-                echo $""
-                moduleconfig_remove "$1"
-            fi
-        fi
-    done
-    rm -f "$dkms_tree/$module/kernel-$1-$2"
+        rm -f "$dkms_tree/$module/kernel-$1-$2"
     else
         echo $""
         echo $"Status: This module version was INACTIVE for this kernel."
@@ -1724,6 +1737,17 @@ do_uninstall()
 
     # Run depmod because we changed /lib/modules
     invoke_command "do_depmod $1" "depmod" background
+
+    if [ -z "$NO_WEAK_MODULES" ]; then
+        if [[ ${weak_modules} ]] && (module_status_built $module $module_version |grep -q "installed"); then
+            echo $"Removing any linked weak-modules"
+            list_each_installed_module "$module" "$1" "$2" | ${weak_modules} ${weak_modules_no_initrd} --remove-modules --delete-modules
+        fi
+    else
+        # Module might already be installed on system earlier and without weak-modules disable. So remove any weak installs for kernel
+        remove_weak_links "$1"
+    fi
+
 
     # Do remake_initrd things (remake initrd)
     if [[ $remake_initrd && $was_active ]] && ! make_initrd "$1" "$2"; then
@@ -3730,7 +3754,7 @@ while (($# > 0)); do
             ;;
         --no-depmod)
             no_depmod="true"
-	    ;;
+        ;;
         --debug)
             export PS4='${BASH_SOURCE}@${LINENO}(${FUNCNAME[0]}): '
             set -x
