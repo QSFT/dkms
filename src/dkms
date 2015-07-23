@@ -301,6 +301,9 @@ make_initrd()
             $"$initrd_dir for kernel version $1"
             return 1;
         fi
+
+        # Sles way. We have to call two commands. First mkinitrd_setup to copy scripts, then mkinitrd
+        invoke_command "/sbin/mkinitrd_setup" "/sbin/mkinitrd_setup" background
         invoke_command "$mkinitrd -k $kernel_file-$1 -i $initrd" "$mkinitrd" background
     elif [[ -e /etc/debian_version ]]; then
         invoke_command "$mkinitrd -o $initrd_dir/$initrd $1" "$mkinitrd" background
