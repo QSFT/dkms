@@ -261,8 +261,12 @@ make_initrd()
         [[ $mkinitrd ]] && which "$mkinitrd" >/dev/null 2>&1 && break
     done
 
-    # No mkinitrd? Just return.
-    [[ $mkinitrd ]] || return 0
+    # No mkinitrd? Warn user and return.
+    [[ $mkinitrd ]] || 
+    {
+        echo "No remake initrd/initramfs utility found. Will not create new initrd/initramfs image."
+        return 0
+    }
 
     # Back up our current initrd
     echo $""
