@@ -271,46 +271,51 @@ make_initrd()
     # Back up our current initrd
     echo $""
     [[ $2 = ia64 && -d /boot/efi/efi/redhat ]] && initrd_dir="/boot/efi/efi/redhat"
-    # Find out what the proper filename will be
+    # For each possible initial ramdisk perform remake. Why? Because sles 12 has both initrd and initramfs.
+    # So we have to handle both of them
     for initrd in "initrd-$1.img" "initramfs-$1.img" "initrd.img-$1" "initrd-$1" ''; do
-        [[ $initrd && -f $initrd_dir/$initrd ]] && break
+        [[ $initrd && -f $initrd_dir/$initrd ]] &&
+        {
+            remake_occured=yes
+            echo $"Backing up $initrd to $initrd_dir/$initrd.old-dkms"
+            cp -f "$initrd_dir/$initrd" "$initrd_dir/$initrd.old-dkms"
+            echo $"Making new $initrd"
+            echo $"(If next boot fails, revert to $initrd.old-dkms image)"
+
+            if [[ $mkinitrd = dracut ]]; then
+                invoke_command "$mkinitrd -f $initrd_dir/$initrd $1" "$mkinitrd" background
+            elif [[ $mkinitrd = update-initramfs ]]; then
+                invoke_command "$mkinitrd -u -k $1" "$mkinitrd" background
+            elif $mkinitrd --version >/dev/null 2>&1; then
+                invoke_command "$mkinitrd -f $initrd_dir/$initrd $1" "$mkinitrd" background
+            elif [[ -e /etc/SuSE-release || -d /etc/SuSEconfig ]]; then
+                for kernel_file in vmlinuz vmlinux ''; do
+                    [[ $kernel_file && -f $initrd_dir/$kernel_file ]] && break
+                done
+                if [[ ! $kernel_file ]]; then
+                    error $"Unable to find valid kernel file under " \
+                    $"$initrd_dir for kernel version $1"
+                    return 1;
+                fi
+
+                # Sles way. We have to call two commands. First mkinitrd_setup to copy scripts, then mkinitrd
+                invoke_command "/sbin/mkinitrd_setup" "/sbin/mkinitrd_setup" background
+                invoke_command "$mkinitrd -k $kernel_file-$1 -i $initrd" "$mkinitrd" background
+            elif [[ -e /etc/debian_version ]]; then
+                invoke_command "$mkinitrd -o $initrd_dir/$initrd $1" "$mkinitrd" background
+            else
+                echo $""
+                echo $"Calling $mkinitrd (bad exit status 9 may occur)"
+                invoke_command "$mkinitrd" "$mkinitrd" background
+            fi
+        }
     done
-    if ! [[ $initrd ]]; then
-        # Return if we cannot find an initrd.
+
+    if [[ "$remake_occured" != "yes" ]]; then
+        # Return if we didn't find an initrd.
         warn $"Unable to find an initial ram disk that I know how to handle." \
             $"Will not try to make an initrd."
         return 0
-    fi
-    echo $"Backing up $initrd to $initrd_dir/$initrd.old-dkms"
-    cp -f "$initrd_dir/$initrd" "$initrd_dir/$initrd.old-dkms"
-    echo $"Making new $initrd"
-    echo $"(If next boot fails, revert to $initrd.old-dkms image)"
-
-    if [[ $mkinitrd = dracut ]]; then
-        invoke_command "$mkinitrd -f $initrd_dir/$initrd $1" "$mkinitrd" background
-    elif [[ $mkinitrd = update-initramfs ]]; then
-        invoke_command "$mkinitrd -u -k $1" "$mkinitrd" background
-    elif $mkinitrd --version >/dev/null 2>&1; then
-        invoke_command "$mkinitrd -f $initrd_dir/$initrd $1" "$mkinitrd" background
-    elif [[ -e /etc/SuSE-release || -d /etc/SuSEconfig ]]; then
-        for kernel_file in vmlinuz vmlinux ''; do
-            [[ $kernel_file && -f $initrd_dir/$kernel_file ]] && break
-        done
-        if [[ ! $kernel_file ]]; then
-            error $"Unable to find valid kernel file under " \
-            $"$initrd_dir for kernel version $1"
-            return 1;
-        fi
-
-        # Sles way. We have to call two commands. First mkinitrd_setup to copy scripts, then mkinitrd
-        invoke_command "/sbin/mkinitrd_setup" "/sbin/mkinitrd_setup" background
-        invoke_command "$mkinitrd -k $kernel_file-$1 -i $initrd" "$mkinitrd" background
-    elif [[ -e /etc/debian_version ]]; then
-        invoke_command "$mkinitrd -o $initrd_dir/$initrd $1" "$mkinitrd" background
-    else
-        echo $""
-        echo $"Calling $mkinitrd (bad exit status 9 may occur)"
-        invoke_command "$mkinitrd" "$mkinitrd" background
     fi
     return
 }
