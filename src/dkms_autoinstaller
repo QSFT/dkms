@@ -1,20 +1,6 @@
 #!/bin/sh
-#
-# dkms_autoinstaller - A service to automatically install DKMS modules for new kernels.
-#
-# chkconfig: 345 04 04
-# description: Compiles and install kernel modules automatically for new \
-#              kernels at boot.
 
-### BEGIN INIT INFO
-# Provides: dkms_autoinstaller dkms
-# Default-Start: 3 4 5
-# Default-Stop: 0 1 2 6
-# Required-Start: $local_fs
-# Short-Description: DKMS kernel modules installer service
-# Description: A service to automatically install DKMS modules for new kernels.
-### END INIT INFO
-
+#set -x
 
 if [ -f /lib/lsb/init-functions ]; then
     . /lib/lsb/init-functions
@@ -27,34 +13,28 @@ fi
 if [ ! -f /etc/debian_version ]; then
     alias log_daemon_msg=/bin/echo
     log_end_msg() { if [ "$1" = "0" ]; then echo " Done. "; else echo " Failed. "; fi }
+    export -f log_end_msg
     alias log_action_begin_msg=log_daemon_msg
     alias log_action_end_msg=log_end_msg
 fi
 
-exec="/usr/sbin/dkms"
-prog=${exec##*/}
+dkms="/usr/sbin/dkms"
+dkms_name="dkms"
 
-test -f $exec || exit 0
+test -f $dkms ||
+{
+    echo "No DKMS executable was found. Skiping autoinstall for kernel $2."
+    exit 0
+}
 
-[ -e /etc/sysconfig/$prog ] && . /etc/sysconfig/$prog
+[ -e /etc/sysconfig/$dkms_name ] && . /etc/sysconfig/$dkms_name
 
-case "$1" in
-    start)
-		if [ -n "$2" ]; then
-			kernel="$2"
-		else
-			kernel=`uname -r`
-		fi
-		log_daemon_msg "$prog: running auto installation service for kernel $kernel"
-		dkms autoinstall --kernelver $kernel
-		log_end_msg $?
-		;;
-	stop|restart|force-reload|status|reload)
-		# There is no stop action, this and the 04 priority during stop is
-		# added to make RHEL chkconfig happy.
-		# Ignore others on debian/ubuntu too
-        ;;
-    *)
-        echo $"Usage: $0 {start}"
-        exit 2
-esac
+if [ -n "$1" ]; then
+    kernel="$1"
+else
+    kernel=`uname -r`
+fi
+
+log_daemon_msg "$dkms_name: running auto installation service for kernel $kernel"
+$dkms autoinstall --kernelver $kernel
+log_end_msg $?

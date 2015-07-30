@@ -1,20 +1,30 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
+export PACKSTAGE=$1
+export ADDITIONAL_STAGE=$2
+
+is_upgrade () {
+    ([[ "$PACKSTAGE" == "configure" ]] || [[ "$PACKSTAGE" == "upgrade" ]]) && [[ -n "$ADDITIONAL_STAGE" ]]
+}
+
+if ! is_upgrade ; then
+    update-rc.d dkms_service defaults
+fi
 
 if dpkg --compare-versions "$2" lt-nl "2.0.21.1-1~" ; then
-	if [ -e "/etc/modprobe.d/dkms" ]; then
-		md5sum=$(md5sum /etc/modprobe.d/dkms | sed -e 's/ .*//')
-		old_md5sum=$(dpkg-query -W -f='${Conffiles}' dkms | \
-			sed -n -e "\' /etc/modprobe.d/dkms ' { s/ obsolete$//; s/.* //; p }")
-		if [ "$md5sum" = "$old_md5sum" ]; then
-			rm -f /etc/modprobe.d/dkms
-		else
-			echo "Moving /etc/modprobe.d/dkms to /etc/modprobe.d/dkms.conf ..."
-			mv /etc/modprobe.d/dkms /etc/modprobe.d/dkms.conf
-			rm -f /etc/modprobe.d/dkms
-		fi
-	fi
+    if [ -e "/etc/modprobe.d/dkms" ]; then
+        md5sum=$(md5sum /etc/modprobe.d/dkms | sed -e 's/ .*//')
+        old_md5sum=$(dpkg-query -W -f='${Conffiles}' dkms | \
+            sed -n -e "\' /etc/modprobe.d/dkms ' { s/ obsolete$//; s/.* //; p }")
+        if [ "$md5sum" = "$old_md5sum" ]; then
+            rm -f /etc/modprobe.d/dkms
+        else
+            echo "Moving /etc/modprobe.d/dkms to /etc/modprobe.d/dkms.conf ..."
+            mv /etc/modprobe.d/dkms /etc/modprobe.d/dkms.conf
+            rm -f /etc/modprobe.d/dkms
+        fi
+    fi
 fi
 
 #DEBHELPER#

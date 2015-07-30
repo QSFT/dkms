@@ -1,4 +1,4 @@
-%if 0%{?fedora} >= 20 || 0%{?rhel} >= 7
+%if 0%{?fedora} >= 20 || 0%{?rhel} >=7 || 0%{?suse_version} >= 1315
 %define _package_name_suffix systemd
 %else
 %define _package_name_suffix sysv
@@ -32,13 +32,13 @@ Requires: sed
 Requires: tar 
 Requires: bash > 1.99
 
-%if 0%{?fedora} || 0%{?rhel} >= 7
+%if 0%{?fedora} || 0%{?rhel} >= 7 || 0%{?suse_version} >= 1315
 Requires:       kmod
 %else
 Requires:       module-init-tools
 %endif
 
-%if 0%{?fedora} >= 20 || 0%{?rhel} >= 7
+%if 0%{?fedora} >= 20 || 0%{?rhel} >= 7 || 0%{?suse_version} >= 1315
 BuildRequires:          systemd
 Requires(post):         systemd
 Requires(preun):        systemd
@@ -131,26 +131,26 @@ make install-redhat-sysv DESTDIR=$RPM_BUILD_ROOT \
 %clean
 rm -rf $RPM_BUILD_ROOT
 
-%if 0%{?fedora} >= 20 || 0%{?rhel} >= 7
+%if 0%{?fedora} >= 20 || 0%{?rhel} >= 7 || 0%{?suse_version} >= 1315
 
 %post
-%systemd_post %{name}_autoinstaller.service
+%systemd_post %{name}.service
 
 %preun
-%systemd_preun %{name}_autoinstaller.service
+%systemd_preun %{name}.service
 
 %postun
-%systemd_postun %{name}_autoinstaller.service
+%systemd_postun %{name}.service
 
 %else
 
 %post
 # enable on initial install
-[ $1 -lt 2 ] && /sbin/chkconfig dkms_autoinstaller on ||:
+[ $1 -lt 2 ] && /sbin/chkconfig dkms_service on ||:
 
 %preun
 # remove on uninstall
-[ $1 -lt 1 ] && /sbin/chkconfig dkms_autoinstaller off ||:
+[ $1 -lt 1 ] && /sbin/chkconfig dkms_service off ||:
 
 %endif
 
@@ -158,13 +158,10 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %doc sample.spec sample.conf AUTHORS COPYING README.dkms
 
-%if 0%{?fedora} >= 20 || 0%{?rhel} >= 7
+%if 0%{?fedora} >= 20 || 0%{?rhel} >= 7 || 0%{?suse_version} >= 1315
 %{_unitdir}/%{name}.service
-
-#Temporary hack, before I rework kernel install actions
-%{_initrddir}/%{name}_autoinstaller
 %else
-%{_initrddir}/%{name}_autoinstaller
+/etc/init.d/%{name}_service
 %endif
 
 %{_prefix}/lib/%{name}
