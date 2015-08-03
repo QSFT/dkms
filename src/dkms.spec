@@ -146,11 +146,11 @@ rm -rf $RPM_BUILD_ROOT
 
 %post
 # enable on initial install
-[ $1 -lt 2 ] && /sbin/chkconfig dkms_service on ||:
+[ $1 -lt 2 ] && /sbin/chkconfig %{name}-service on ||:
 
 %preun
 # remove on uninstall
-[ $1 -lt 1 ] && /sbin/chkconfig dkms_service off ||:
+[ $1 -lt 1 ] && /sbin/chkconfig %{name}-service off ||:
 
 %endif
 
@@ -161,7 +161,7 @@ rm -rf $RPM_BUILD_ROOT
 %if 0%{?fedora} >= 20 || 0%{?rhel} >= 7 || 0%{?suse_version} >= 1315
 %{_unitdir}/%{name}.service
 %else
-/etc/init.d/%{name}_service
+/etc/init.d/%{name}-service
 %endif
 
 %{_prefix}/lib/%{name}
@@ -170,18 +170,10 @@ rm -rf $RPM_BUILD_ROOT
 %{_localstatedir}/lib/%{name}
 %config(noreplace) %{_sysconfdir}/%{name}
 # these dirs are for plugins - owned by other packages
-%{_sysconfdir}/kernel/postinst.d/%{name}
-%{_sysconfdir}/kernel/prerm.d/%{name}
 %{_sysconfdir}/bash_completion.d/%{name}
 
 %if 0%{?suse_version}
 %doc sample-suse-9-mkkmp.spec sample-suse-10-mkkmp.spec
-# suse doesnt yet support /etc/kernel/{prerm.d,postinst.d}, but will fail build
-# with unowned dirs if we dont own them ourselves
-# when opensuse *does* add this support, we will need to BuildRequires kernel
-%dir %{_sysconfdir}/kernel
-%dir %{_sysconfdir}/kernel/postinst.d
-%dir %{_sysconfdir}/kernel/prerm.d
 %endif
 
 %changelog

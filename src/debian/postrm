@@ -9,5 +9,5 @@ is_upgrade () {
 }
 
 if ! is_upgrade ; then
-    update-rc.d -f dkms_service remove
+    update-rc.d -f dkms-service remove
 fi

@@ -4,8 +4,10 @@ Documentation=man:dkms(8)
 
 [Service]
 Type=oneshot
-RemainAfterExit=false
-ExecStart=/bin/sh "/usr/lib/dkms/dkms_autoinstaller"
+RemainAfterExit=true
+ExecStart=/bin/sh -c "/usr/lib/dkms/dkms_watchdog start"
+ExecReload=/bin/sh -c "/usr/lib/dkms/dkms_watchdog status && /usr/lib/dkms/dkms_watchdog stop" ; /bin/sh -c "/usr/lib/dkms/dkms_watchdog start"
+ExecStop=/bin/sh -c "/usr/lib/dkms/dkms_watchdog stop"
 
 [Install]
 WantedBy=runlevel2.target

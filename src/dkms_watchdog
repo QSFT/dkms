@@ -1,0 +1,483 @@
+#!/bin/bash
+
+#set -x
+
+dkms="DKMS"
+dkms_exec=/usr/sbin/dkms
+
+dkms_wd_pidfile=/var/run/dkms.watcher.pid.
+start_failed=/var/run/dkms.wd.start.failed.
+watchdog_pidfile=/var/run/dkms.watchdog.pid.
+log_file=/var/log/dkms.watchdog.log
+lock_file=/var/run/dkms.autoinstall.lock
+sleeptime=1
+killtime=30
+
+
+
+
+# Shell watchdog
+daemon_start(){
+    nohup $0 $1 &
+
+    log_message="waited for pid to appear for"
+    sec=0
+    script_name=`basename "$0"`
+    for i in `seq 1 10`; do
+        pid=`pgrep -f -n "$script_name $1"`
+        [ -n "$pid" ] && break
+        sleep 1
+        sec=$((sec + 1))
+    done
+
+
+    if [ -n "$pid" ]; then
+        log "$dkms: Watchdog-$1 service started with PID ($pid)"
+        echo $pid > $dkms_wd_pidfile$1
+    else
+        log "$dkms: Watchdog-$1 service failed to start (pid not found)"
+    fi
+}
+
+watchdog(){
+    mypid=$(sh -c 'echo $PPID')
+    [ -z $mypid ] && mypid=$(sh -c 'echo $PPID')
+    [ -z $mypid ] &&
+    {
+        touch $start_failed$1
+        exit 1
+    }
+
+    echo $mypid > $watchdog_pidfile$1
+
+    log "$dkms: Starting Watchdog-$1 service"
+    daemon_start $1
+
+    while [ -z $wd_stop ]; do
+        [ -f $dkms_wd_pidfile$1 ] && kill -0 `cat $dkms_wd_pidfile$1` || {
+            log "$dkms: Watchdog-$1 service was stopped: trying to restart"
+            daemon_start $1
+        }
+        sleep $sleeptime
+    done
+
+    exit 0
+}
+
+check_single_process() {
+    [ ! -f $1 ] && return 1
+    pid=`cat $1`
+    `kill -0 $pid 1>/dev/null 2>&1`
+    return $?
+}
+
+check_running() {
+    check_single_process "$dkms_wd_pidfile"watch_src \
+        && check_single_process "$dkms_wd_pidfile"watch_lib \
+        && check_single_process "$watchdog_pidfile"watch_lib \
+        && check_single_process "$watchdog_pidfile"watch_src
+    return $?
+}
+
+kill_single_group() {
+    [ -e "$@" ] && {
+        pid=`cat "$@"`
+        kill -9 -`ps x -o  "%p %r" | grep $pid | head -n1 | awk {'print($2)'}` 1>/dev/null 2>&1
+    }
+}
+
+kill_watchdog() {
+    kill_single_group "$watchdog_pidfile"watch_lib
+    kill_single_group "$watchdog_pidfile"watch_src
+    kill_single_group "$dkms_wd_pidfile"watch_lib
+    kill_single_group "$dkms_wd_pidfile"watch_src
+    rm "$watchdog_pidfile"watch_lib \
+        "$watchdog_pidfile"watch_src \
+        "$dkms_wd_pidfile"watch_lib \
+        "$dkms_wd_pidfile"watch_src \
+        "$start_failed"watch_src \
+        "$start_failed"watch_lib 1>/dev/null 2>&1
+}
+
+trigger_watchdog_for_folder() {
+    log "Starting DKMS-watchdog service for $2 ... "
+    nohup $0 watchdog $1 >/dev/null 2>&1 &
+    while [ ! -f $dkms_wd_pidfile$1 ] && [ ! -f $start_failed$1 ] ; do
+        sleep 5
+    done
+
+    if [ -f $dkms_wd_pidfile$1 ] ; then
+        log "Done."
+    fi
+
+    if [ -f $start_failed$1 ] ; then
+        log "Failed."
+        rm -f $start_failed$1
+    fi
+}
+
+
+
+
+
+# Auto-manager
+log_end_msg() {
+    if [ "$1" = "0" ]; then
+        log " Done. "
+    else
+        log " Failed. "
+    fi
+}
+
+log() {
+    echo "$@"
+    echo "$@" >> $log_file
+    logger "$@"
+
+}
+
+log_piped() {
+    while read x ; do
+        log $x
+    done
+}
+
+log_not_supported() {
+    log "DKMS: Function $1 is not supported for you package manager."
+    exit 1
+}
+
+check_sudo() {
+    [ "`whoami`" != "root" ] &&
+    {
+        log "This script should be called only by user who has root privileges."
+        exit 1
+    }
+}
+
+check_supported() {
+   `which rpm 1>/dev/null 2>&1`
+   if [ "$?" != "0" ] ; then
+       log "$dkms: Watchdog daemon so far only supported on RPM based distributives. Sorry."
+       exit 1
+   fi
+}
+
+get_package_version() {
+    if `which rpm 1>/dev/null 2>&1` ; then
+        echo $(rpm -qi "$1" | grep -e "Version\|Release" | cut -d ':' -f2 | awk '{print $1}') | sed -e 's| \+|.|g'
+    else
+        log_not_supported "get_package_version"
+    fi
+}
+
+get_kernel_version() {
+    if `which rpm 1>/dev/null 2>&1` ; then
+        echo `rpm -ql "$1" | grep "$lib_dir" | head -n1 | cut -d '/' -f4`
+    else
+        log_not_supported "get_kernel_version"
+    fi
+}
+
+get_package_version_for_file() {
+    if `which rpm 1>/dev/null 2>&1` ; then
+        echo $(rpm -qi $(rpm -qf "$1"/) | grep -e "Version\|Release" | cut -d ':' -f2 | awk '{print $1}') | sed -e 's| \+|.|g'
+    else
+        log_not_supported "get_package_version_for_file"
+    fi
+}
+
+get_packages_for_folder() {
+    if `which rpm 1>/dev/null 2>&1` ; then
+        echo `rpm -qf "$1"/* | grep -v "not owned" | uniq | sort -V`
+    else
+        log_not_supported "get_packages_for_folder"
+    fi
+}
+
+wait_package_install_done() {
+   if `which rpm 1>/dev/null 2>&1` ; then
+      fuser /var/lib/rpm/* 1>/dev/null 2>&1
+      while [ $? -eq 0 ] ; do
+          sleep 1
+          fuser /var/lib/rpm/* 1>/dev/null 2>&1
+      done
+   else
+       log_not_supported "wait_package_install_done"
+   fi
+}
+
+check_package_installed() {
+    if `which rpm 1>/dev/null 2>&1` ; then
+        `rpm -q "$1" 1>/dev/null 2>&1` && return 0 || return 1
+    else
+        log_not_supported "check_package_installed"
+    fi
+}
+
+check_folder_owned_by_package() {
+    if `which rpm 1>/dev/null 2>&1` ; then
+        `rpm -qf "$1" 1>/dev/null 2>&1` && return 0 || return 1
+    else
+        log_not_supported "check_package_installed"
+    fi
+}
+
+watch_folder() {
+    folder_to_watch=$1
+    folder_to_search=$2
+    old_sha=`ls -ld $folder_to_watch/*/ | sha256sum`
+    old_packages=( $(get_packages_for_folder $folder_to_watch) )
+    log "$dkms: Started monitoring folder: $folder_to_watch"
+    log "      Folder contains following packages: ${old_packages[@]}"
+
+    while true ; do
+        changed_packages=()
+        new_sha=`ls -ld $folder_to_watch/*/ | sha256sum`
+        if [ $old_sha == $new_sha ] ; then
+            sleep 5
+            continue
+        fi
+
+        old_structure=()
+        old_structure=( $(ls -d $folder_to_watch/*/) )
+        wait_package_install_done
+        old_sha=$new_sha
+        new_packages=()
+        new_packages=( $(get_packages_for_folder $folder_to_watch) )
+
+        for new_pack in ${new_packages[@]} ; do
+            found=no
+            for old_pack in ${old_packages[@]} ; do
+                if [ $old_pack == $new_pack ] ; then
+                    found=yes
+                    break
+                fi
+            done
+
+            if [ "$found" != "yes" ]; then
+                changed_packages+=($new_pack)
+            fi
+        done
+
+        for old_pack in ${old_packages[@]} ; do
+            found=no
+            for new_pack in ${new_packages[@]} ; do
+                if [ $old_pack == $new_pack ] ; then
+                    found=yes
+                    break
+                fi
+            done
+
+            if [ "$found" != "yes" ]; then
+                changed_packages+=($old_pack)
+            fi
+        done
+
+
+        if [ "${#old_packages[@]}" != "${#new_packages[@]}" ] ; then
+            log "$dkms: Packages count changed in folder: $folder_to_watch"
+            log "      Count was: ${#old_packages[@]}, became: ${#new_packages[@]}"
+            log "      Old packages: ${old_packages[@]}"
+            log "      New packages: ${new_packages[@]}"
+        fi
+
+        old_packages=()
+        old_packages=( ${new_packages[@]} )
+        if [ "${#changed_packages[@]}" == "0" ] ; then
+            sleep 5
+            continue
+        fi
+
+        log "$dkms: Packages that were changed in directory: $folder_to_watch"
+        log "      ${changed_packages[@]}"
+        packages_to_match=( $(get_packages_for_folder $folder_to_search) )
+        log "$dkms: Will try to find matching package among: ${packages_to_match[@]}"
+        for changed_pack in ${changed_packages[@]} ; do
+            if `check_package_installed $changed_pack` ; then
+                version=`get_package_version $changed_pack`
+                installed=no
+                for pack_to_match in ${packages_to_match[@]} ; do
+                    pack_version=`get_package_version $pack_to_match`
+                    if [ "$version" == "$pack_version" ] ; then
+                        log "$dkms: Found matching package: $pack_to_match, for newly installed: $changed_pack"
+                        kver=`get_kernel_version $pack_to_match`
+                        [ -z $kver ] &&
+                        {
+                            kver=`get_kernel_version $changed_pack`
+                        }
+
+                        log "$dkms: Calling dkms autoinstall for kernel with version $kver"
+
+                        while [ -f $lock_file ] ; do
+                            sleep 2
+                        done
+
+                        touch $lock_file
+                        perform_autoinstall $kver
+                        installed=yes
+                        rm -f $lock_file
+                    fi
+                done
+            else
+                installed=yes
+                if [ "$folder_to_watch" != "$lib_dir" ] ; then
+                    log "$dkms: Removed package is not kernel itself. Will not perform autoremove."
+                    continue
+                fi
+
+                new_structure=()
+                new_structure=( $(ls -d $folder_to_watch/*/) )
+
+                for old_dir in ${old_structure[@]} ; do
+                    found=no
+                    for new_dir in ${new_structure[@]} ; do
+                        if [ "$old_dir" == "$new_dir" ] ; then
+                            if `check_folder_owned_by_package "$old_dir"` ; then
+                                found=yes
+                            fi
+                        fi
+                    done
+
+                    if [ "$found" != "yes" ] ; then
+                        perform_autoremove `echo $old_dir | cut -d '/' -f4`
+                    fi
+                done
+            fi
+
+            if [ "$installed" != "yes" ] ; then
+                log "$dkms: Found no matching kernel or headers package for package $changed_pack"
+                log "      Will not call dkms autoinstall. After headers or kernel are installed autoinstall should occure."
+            fi
+        done
+    done
+}
+
+perform_autoremove() {
+    kernelver=$1
+
+    log "$dkms: Starting autoremove for kernel: $kernelver"
+
+    while read line; do
+        name=`echo "$line" | awk '{print $1}' | sed 's/,$//'`
+        vers=`echo "$line" | awk '{print $2}' | sed 's/,$//'`
+        arch=`echo "$line" | awk '{print $4}' | sed 's/:$//'`
+        if `echo $line | grep ": installed-weak" 1>/dev/null 2>&1` ; then
+            log "$dkms: removing weak link for module $name in kernel $kernelver"
+            [ -e /lib/modules/$kernelver/weak-updates/"$name".ko ] && rm -f /lib/modules/$kernelver/weak-updates/"$name".ko
+            continue
+        fi
+
+        log "$dkms: removing: $name $vers ($kernelver) ($arch)" >&2
+        $dkms_exec remove -m $name -v $vers -k $kernelver -a $arch | log_piped
+    done < <($dkms_exec status -k $kernelver 2>/dev/null | grep ": installed")
+
+    rmdir --ignore-fail-on-non-empty \
+        "/lib/modules/$kernelver/updates/dkms" \
+        "/lib/modules/$kernelver/updates" 2>/dev/null
+}
+
+perform_autoinstall() {
+    kernelver=$1
+
+    if [ -f /lib/lsb/init-functions ]; then
+        . /lib/lsb/init-functions
+    elif [ -f /etc/rc.d/init.d/functions ]; then
+        . /etc/rc.d/init.d/functions
+    fi
+
+    test -f $dkms_exec ||
+    {
+        log "$dkms: No $dkms executable was found. Skiping autoinstall for kernel $2."
+        exit 0
+    }
+
+    [ -e /etc/sysconfig/dkms ] && . /etc/sysconfig/dkms
+
+    log "$dkms: Running auto installation for kernel $kernelver"
+    $dkms_exec autoinstall --kernelver $kernelver
+    log_end_msg $?
+}
+
+export -f log_end_msg
+
+case $1 in
+    start)
+          check_sudo
+          perform_autoinstall $(uname -r)
+          check_supported
+          check_running &&
+          {
+              log "DKMS-watchdog is already running"
+              exit 0
+          } ||
+          {
+              kill_watchdog
+          }
+
+          # Trigger autoinstaller on start for current kernel.
+
+          trigger_watchdog_for_folder watch_src "kernel-headers"
+
+          trigger_watchdog_for_folder watch_lib "kernel-modules"
+          exit 0
+          ;;
+    stop)
+          check_supported
+          kill_watchdog
+          exit 0
+          ;;
+
+    status)
+          check_supported
+          check_running &&
+          {
+              echo "DKMS-watchdog is running"
+              exit 0
+          } ||
+          {
+              echo "DKMS-watchdog is stopped"
+              exit 1
+          }
+
+          ;;
+    watchdog)
+          check_supported
+          watchdog $2
+          exit 0
+          ;;
+    watch_src)
+          check_supported
+          [ -f /etc/redhat-release ] &&
+          {
+              export lib_dir="/lib/modules"
+              watch_folder "/usr/src/kernels" "/lib/modules"
+          } ||
+          {
+              export lib_dir="/lib/modules"
+              watch_folder "/usr/src" "/lib/modules"
+          }
+          ;;
+    watch_lib)
+          check_supported
+          [ -f /etc/redhat-release ] &&
+          {
+              export lib_dir="/lib/modules"
+              watch_folder "/lib/modules" "/usr/src/kernels"
+          } ||
+          {
+              export lib_dir="/lib/modules"
+              watch_folder "/lib/modules" "/usr/src"
+          }
+          ;;
+    autoinstall)
+          perform_autoinstall $2
+          ;;
+    autoremove)
+          perform_autoremove $2
+          ;;
+    *)    echo "Incorrect option passed: '$1'. Allowed options are 'start', 'status', 'stop', 'autoinstall' and 'autoremove'"
+          ;;
+esac
+
+exit 0

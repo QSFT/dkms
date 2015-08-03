@@ -37,16 +37,16 @@ esac
 
 echo "DKMS: Starting post-install script on kernel $inst_kern"
 
-if [ ! -x /usr/lib/dkms/dkms_autoinstaller ]; then
-    echo "DKMS autoinstaller executable was not found. Will not continue autoinstall process."
+if [ ! -x /usr/lib/dkms/dkms_watchdog ]; then
+    echo "DKMS: Autoinstaller executable was not found. Will not continue autoinstall process."
     exit 0
 fi
 
 if ! _check_kernel_dir $inst_kern ; then
-    echo "dkms: Error: $kernel headers are missing, Will not continue autoinstall process." >&2
+    echo "DKMS: Error: $kernel headers are missing, Will not continue autoinstall process." >&2
     echo "      Please install the $header_pkg package and run command '/usr/lib/dkms/dkms_autoinstaller $inst_kern' manually." >&2
     exit 0
 fi
 
-exec /usr/lib/dkms/dkms_autoinstaller $inst_kern > /dev/null
+exec /usr/lib/dkms/dkms_watchdog autoinstall $inst_kern > /dev/null
 
