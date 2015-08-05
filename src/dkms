@@ -262,7 +262,7 @@ make_initrd()
     done
 
     # No mkinitrd? Warn user and return.
-    [[ $mkinitrd ]] || 
+    [[ $mkinitrd ]] ||
     {
         echo "No remake initrd/initramfs utility found. Will not create new initrd/initramfs image."
         return 0
@@ -283,6 +283,10 @@ make_initrd()
             echo $"(If next boot fails, revert to $initrd.old-dkms image)"
 
             if [[ $mkinitrd = dracut ]]; then
+                if [ ! -z $3  ] ; then
+                    #Dracut wants module to be loaded into current kernel, if we call remake for it
+                    modprobe $3
+                fi
                 invoke_command "$mkinitrd -f $initrd_dir/$initrd $1" "$mkinitrd" background
             elif [[ $mkinitrd = update-initramfs ]]; then
                 invoke_command "$mkinitrd -u -k $1" "$mkinitrd" background
@@ -952,7 +956,7 @@ moduleconfig_remove()
 }
 
 etc_sysconfig_kernel_modify()
-(
+{
     [[ -e /etc/sysconfig/kernel && $remake_initrd ]] || return 0
 
     # Make a temp directory to store files
@@ -974,7 +978,7 @@ etc_sysconfig_kernel_modify()
     fi
     # Delete the temp dir
     rm -rf $temp_dir_name
-)
+}
 
 check_module_args() {
     [[ $module && $module_version ]] && return
@@ -1529,7 +1533,7 @@ install_module()
     }
 
     # Do remake_initrd things (save old initrd)
-    [[ $remake_initrd ]] && ! make_initrd "$kernelver" "$arch" && {
+    [[ $remake_initrd ]] && ! make_initrd "$kernelver" "$arch" "$module" && {
         do_uninstall "$kernelver" "$arch"
         die 7 $"Problems with mkinitrd detected.  Automatically uninstalling this module." \
             $"DKMS: Install Failed (mkinitrd problems).  Module rolled back to built state."
