@@ -5,7 +5,11 @@ Documentation=man:dkms(8)
 [Service]
 Type=oneshot
 RemainAfterExit=true
-ExecStart=/bin/sh -c 'dkms autoinstall --verbose --kernelver $(uname -r)'
+ExecStart=/bin/sh -c "/usr/lib/dkms/dkms_watchdog start"
+ExecReload=/bin/sh -c "/usr/lib/dkms/dkms_watchdog status && /usr/lib/dkms/dkms_watchdog stop" ; /bin/sh -c "/usr/lib/dkms/dkms_watchdog start"
+ExecStop=/bin/sh -c "/usr/lib/dkms/dkms_watchdog stop"
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=runlevel2.target
+WantedBy=runlevel3.target
+WantedBy=runlevel5.target

@@ -96,7 +96,7 @@ error() (
 
 warn() (
     exec >&2
-    echo -n "$Warning: "
+    echo -n "Warning: "
     for s in "$@"; do echo "$s"; done
 )
 
@@ -262,7 +262,7 @@ make_initrd()
     done
 
     # No mkinitrd? Warn user and return.
-    [[ $mkinitrd ]] || 
+    [[ $mkinitrd ]] ||
     {
         echo "No remake initrd/initramfs utility found. Will not create new initrd/initramfs image."
         return 0
@@ -283,6 +283,10 @@ make_initrd()
             echo $"(If next boot fails, revert to $initrd.old-dkms image)"
 
             if [[ $mkinitrd = dracut ]]; then
+                if [ ! -z $3  ] ; then
+                    #Dracut wants module to be loaded into current kernel, if we call remake for it
+                    modprobe $3
+                fi
                 invoke_command "$mkinitrd -f $initrd_dir/$initrd $1" "$mkinitrd" background
             elif [[ $mkinitrd = update-initramfs ]]; then
                 invoke_command "$mkinitrd -u -k $1" "$mkinitrd" background
@@ -952,7 +956,7 @@ moduleconfig_remove()
 }
 
 etc_sysconfig_kernel_modify()
-(
+{
     [[ -e /etc/sysconfig/kernel && $remake_initrd ]] || return 0
 
     # Make a temp directory to store files
@@ -974,7 +978,7 @@ etc_sysconfig_kernel_modify()
     fi
     # Delete the temp dir
     rm -rf $temp_dir_name
-)
+}
 
 check_module_args() {
     [[ $module && $module_version ]] && return
@@ -1529,7 +1533,7 @@ install_module()
     }
 
     # Do remake_initrd things (save old initrd)
-    [[ $remake_initrd ]] && ! make_initrd "$kernelver" "$arch" && {
+    [[ $remake_initrd ]] && ! make_initrd "$kernelver" "$arch" "$module" && {
         do_uninstall "$kernelver" "$arch"
         die 7 $"Problems with mkinitrd detected.  Automatically uninstalling this module." \
             $"DKMS: Install Failed (mkinitrd problems).  Module rolled back to built state."
@@ -3331,7 +3335,7 @@ autoinstall() {
     local -a to_install=()
     local -a next_install=()
     local -a installed_modules=()
-    local -A build_depends=()
+    local -a build_depends=()
 
     # Walk through our list of installed and built modules, and create
     # a list of modules that need to be reinstalled.
@@ -3349,6 +3353,14 @@ autoinstall() {
             last_v='0'
             tenative=''
         fi
+
+        read_conf_or_die "$k" "$a" "$dkms_tree/$m/$v/source/dkms.conf"
+
+        # Remove any weak links for module. If it doesn't want them
+        if [ ! -z $NO_WEAK_MODULES ]; then
+            remove_weak_links "$kernelver" "$m"
+        fi
+
         # If the module is already installed or weak-installed, skip it.
         if _is_module_installed "$m" "$v" "$kernelver" "$arch"; then
             installed_modules[${#installed_modules[@]}]="$m"
@@ -3358,8 +3370,8 @@ autoinstall() {
             installed_modules[${#installed_modules[@]}]="$m"
             continue
         fi
+
         # if the module does not want to be autoinstalled, skip it.
-        read_conf_or_die "$k" "$a" "$dkms_tree/$m/$v/source/dkms.conf"
         if [[ ! $AUTOINSTALL ]]; then
             continue
         fi

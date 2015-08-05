@@ -1,0 +1,13 @@
+#!/bin/bash
+
+set -e
+export PACKSTAGE=$1
+export ADDITIONAL_STAGE=$2
+
+is_upgrade () {
+    ([[ "$PACKSTAGE" == "configure" ]] || [[ "$PACKSTAGE" == "upgrade" ]]) && [[ -n "$ADDITIONAL_STAGE" ]]
+}
+
+if ! is_upgrade ; then
+    update-rc.d -f dkms-service remove
+fi

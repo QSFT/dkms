@@ -12,7 +12,7 @@ install:
 	mv -f dkms.versioned dkms
 	install -p -m 0755 dkms_common.postinst $(LIBDIR)/common.postinst
 	install -p -m 0755 dkms $(SBIN)
-	install -p -m 0755 dkms_autoinstaller $(LIBDIR)
+	install -p -m 0755 dkms_watchdog $(LIBDIR)
 	install -p -m 0644 dkms_framework.conf $(ETC)/framework.conf
 	install -p -m 0644 dkms_dbversion $(VAR)
 	install -p -m 0644 dkms.bash-completion $(BASHDIR)/dkms
@@ -20,9 +20,6 @@ install:
 	gzip -c -9 dkms.8 > $(MAN)/dkms.8.gz
 	chmod 0644 $(MAN)/dkms.8.gz
 	touch --reference=dkms.8 $(MAN)/dkms.8.gz
-	mkdir   -p -m 0755 $(KCONF)/prerm.d $(KCONF)/postinst.d
-	install -p -m 0755 kernel_prerm.d_dkms  $(KCONF)/prerm.d/dkms
-	install -p -m 0755 kernel_postinst.d_dkms $(KCONF)/postinst.d/dkms
 
 DOCFILES=sample.spec sample.conf AUTHORS COPYING README.dkms sample-suse-9-mkkmp.spec sample-suse-10-mkkmp.spec
 
@@ -37,18 +34,16 @@ install-redhat-sysv: install doc-perms
 	install -p -m 0755 lsb_release $(LIBDIR)/lsb_release
 	install -p -m 0644 template-dkms-mkrpm.spec $(ETC)
 	install -p -m 0644 template-dkms-redhat-kmod.spec $(ETC)
-	install -p -m 0755 dkms_autoinstaller $(INITD)
+	install -p -m 0755 dkms-service $(INITD)
 
 install-redhat-systemd: install doc-perms
 	mkdir -m 0755 -p  $(SYSTEMD)
-	mkdir -m 0755 -p  $(INITD)
 	install -p -m 0755 dkms_mkkerneldoth $(LIBDIR)/mkkerneldoth
 	install -p -m 0755 dkms_find-provides $(LIBDIR)/find-provides
 	install -p -m 0755 lsb_release $(LIBDIR)/lsb_release
 	install -p -m 0644 template-dkms-mkrpm.spec $(ETC)
 	install -p -m 0644 template-dkms-redhat-kmod.spec $(ETC)
 	install -p -m 0644 dkms.service $(SYSTEMD)
-	install -p -m 0755 dkms_autoinstaller $(INITD)
 
 install-doc:
 	mkdir -m 0755 -p $(DOCDIR)
@@ -56,7 +51,12 @@ install-doc:
 
 install-debian: install install-doc
 	mkdir   -p -m 0755 $(SHAREDIR)/apport/package-hooks
+	mkdir -m 0755 -p  $(INITD)
 	install -p -m 0755 dkms_apport.py $(SHAREDIR)/apport/package-hooks/dkms_packages.py
+	mkdir   -p -m 0755 $(KCONF)/prerm.d $(KCONF)/postinst.d
+	install -p -m 0755 kernel_prerm.d_dkms  $(KCONF)/prerm.d/dkms
+	install -p -m 0755 kernel_postinst.d_dkms $(KCONF)/postinst.d/dkms
+	install -p -m 0755 dkms-service $(INITD)
 	mkdir   -p -m 0755 $(KCONF)/header_postinst.d
 	install -p -m 0755 kernel_postinst.d_dkms $(KCONF)/header_postinst.d/dkms
 	mkdir   -p -m 0755 $(ETC)/template-dkms-mkdeb/debian
