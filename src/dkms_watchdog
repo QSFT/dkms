@@ -159,7 +159,7 @@ check_supported() {
    `which rpm 1>/dev/null 2>&1`
    if [ "$?" != "0" ] ; then
        log "$dkms: Watchdog daemon so far only supported on RPM based distributives. Sorry."
-       exit 1
+       exit 0
    fi
 }
 
