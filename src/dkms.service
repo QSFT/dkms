@@ -1,0 +1,15 @@
+[Unit]
+Description=Builds and install new kernel modules through DKMS
+Documentation=man:dkms(8)
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/bin/sh -c "/usr/lib/dkms/dkms_watchdog start"
+ExecReload=/bin/sh -c "/usr/lib/dkms/dkms_watchdog status && /usr/lib/dkms/dkms_watchdog stop" ; /bin/sh -c "/usr/lib/dkms/dkms_watchdog start"
+ExecStop=/bin/sh -c "/usr/lib/dkms/dkms_watchdog stop"
+
+[Install]
+WantedBy=runlevel2.target
+WantedBy=runlevel3.target
+WantedBy=runlevel5.target

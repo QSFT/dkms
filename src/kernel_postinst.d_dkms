@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# We're passed the version of the kernel being installed
+inst_kern=$1
+
+uname_s=$(uname -s)
+
+_get_kernel_dir() {
+    KVER=$1
+    case ${uname_s} in
+       Linux)          DIR="/lib/modules/$KVER/build" ;;
+       GNU/kFreeBSD)   DIR="/usr/src/kfreebsd-headers-$KVER/sys" ;;
+    esac
+    echo $DIR
+}
+
+_check_kernel_dir() {
+    DIR=$(_get_kernel_dir $1)
+    case ${uname_s} in
+       Linux)          test -e $DIR/include ;;
+       GNU/kFreeBSD)   test -e $DIR/kern && test -e $DIR/conf/kmod.mk ;;
+       *)              return 1 ;;
+    esac
+    return $?
+}
+
+case "${uname_s}" in
+    Linux)
+        header_pkg="linux-headers-$inst_kern"
+        kernel="Linux"
+    ;;
+    GNU/kFreeBSD)
+        header_pkg="kfreebsd-headers-$inst_kern"
+        kernel="kFreeBSD"
+    ;;
+esac
+
+echo "DKMS: Starting post-install script on kernel $inst_kern"
+
+if [ ! -x /usr/lib/dkms/dkms_watchdog ]; then
+    echo "DKMS: Autoinstaller executable was not found. Will not continue autoinstall process."
+    exit 0
+fi
+
+if ! _check_kernel_dir $inst_kern ; then
+    echo "DKMS: Error: $kernel headers are missing, Will not continue autoinstall process." >&2
+    echo "      Please install the $header_pkg package and run command '/usr/lib/dkms/dkms_autoinstaller $inst_kern' manually." >&2
+    exit 0
+fi
+
+exec /usr/lib/dkms/dkms_watchdog autoinstall $inst_kern > /dev/null
+

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# We're passed the version of the kernel being installed
+inst_kern=$1
+
+/usr/lib/dkms/dkms_watchdog autoremove $inst_kern

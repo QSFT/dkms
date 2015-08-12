@@ -1,0 +1,41 @@
+#!/bin/sh
+
+#set -x
+
+# chkconfig: 2345 98 02
+# description: Compiles and install kernel modules automatically for new kernels at boot.
+
+### BEGIN INIT INFO
+# Provides: dkms-service dkms
+# Default-Start: 2 3 5
+# Default-Stop: 0 1 6
+# Required-Start: $local_fs
+# Required-Stop: $local_fs
+# Short-Description: DKMS kernel modules installer service
+# Description: A service to automatically install DKMS modules for new kernels.
+### END INIT INFO
+
+case "$1" in
+    start)
+        /bin/sh -c '/usr/lib/dkms/dkms_watchdog start'
+        ;;
+    stop)
+        /bin/sh -c '/usr/lib/dkms/dkms_watchdog stop'
+        ;;
+    restart|force-reload|reload)
+        /bin/sh -c '/usr/lib/dkms/dkms_watchdog status' && /bin/sh -c '/usr/lib/dkms/dkms_watchdog stop'
+        /bin/sh -c '/usr/lib/dkms/dkms_watchdog start'
+        ;;
+    status)
+        /bin/sh -c '/usr/lib/dkms/dkms_watchdog status' &&
+        {
+            exit 0
+        } ||
+        {
+            exit 1
+        }
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|restart|status}"
+        exit 2
+esac
