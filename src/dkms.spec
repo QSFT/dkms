@@ -135,21 +135,25 @@ rm -rf $RPM_BUILD_ROOT
 
 %post
 %systemd_post %{name}.service
+systemctl start %{name}.service ||:
 
 %preun
+%systemctl stop %{name}.service ||:
 %systemd_preun %{name}.service
 
 %postun
-%systemd_postun %{name}.service
+systemd_postun %{name}.service
 
 %else
 
 %post
 # enable on initial install
 [ $1 -lt 2 ] && /sbin/chkconfig %{name}-service on ||:
+service %{name}-service start ||:
 
 %preun
 # remove on uninstall
+service %{name}-service stop ||:
 [ $1 -lt 1 ] && /sbin/chkconfig %{name}-service off ||:
 
 %endif

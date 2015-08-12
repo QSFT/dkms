@@ -10,6 +10,7 @@ is_upgrade () {
 
 if ! is_upgrade ; then
     update-rc.d dkms-service defaults
+    service dkms-service start
 fi
 
 if dpkg --compare-versions "$2" lt-nl "2.0.21.1-1~" ; then
