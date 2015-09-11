@@ -1,6 +1,38 @@
 #!/bin/bash
 
 set -e
+
+log_start() {
+    echo -n "$@"
+}
+
+log_end() {
+    [ $1 -eq 0 ] && echo -e "\033[1;32m[Done]\033[m" || echo -e "\033[1;31m[Failed]\033[m"
+}
+
+
+add_service () {
+    log_start "Installing $1 service... "
+    if `which systemctl 1>/dev/null 2>&1` ; then
+        systemctl enable $1 1>/dev/null 2>&1
+    else
+        update-rc.d $1 defaults 1>/dev/null 2>&1
+    fi
+
+    log_end $?
+}
+
+del_service () {
+    log_start "Removing $1 service... "
+    if `which systemctl 1>/dev/null 2>&1` ; then
+        systemctl disable $1 1>/dev/null 2>&1
+    else
+        update-rc.d -f $1 remove 1>/dev/null 2>&1
+    fi
+
+    log_end $?
+}
+
 export PACKSTAGE=$1
 export ADDITIONAL_STAGE=$2
 
@@ -9,7 +41,7 @@ is_upgrade () {
 }
 
 if ! is_upgrade ; then
-    update-rc.d dkms-service defaults
+    add_service dkms-service
 fi
 
 if dpkg --compare-versions "$2" lt-nl "2.0.21.1-1~" ; then

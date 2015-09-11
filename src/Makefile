@@ -43,7 +43,7 @@ install-redhat-systemd: install doc-perms
 	install -p -m 0755 lsb_release $(LIBDIR)/lsb_release
 	install -p -m 0644 template-dkms-mkrpm.spec $(ETC)
 	install -p -m 0644 template-dkms-redhat-kmod.spec $(ETC)
-	install -p -m 0644 dkms.service $(SYSTEMD)
+	install -p -m 0644 dkms-service.service $(SYSTEMD)
 
 install-doc:
 	mkdir -m 0755 -p $(DOCDIR)
@@ -56,7 +56,6 @@ install-debian: install install-doc
 	mkdir   -p -m 0755 $(KCONF)/prerm.d $(KCONF)/postinst.d
 	install -p -m 0755 kernel_prerm.d_dkms  $(KCONF)/prerm.d/dkms
 	install -p -m 0755 kernel_postinst.d_dkms $(KCONF)/postinst.d/dkms
-	install -p -m 0755 dkms-service $(INITD)
 	mkdir   -p -m 0755 $(KCONF)/header_postinst.d
 	install -p -m 0755 kernel_postinst.d_dkms $(KCONF)/header_postinst.d/dkms
 	mkdir   -p -m 0755 $(ETC)/template-dkms-mkdeb/debian
@@ -68,6 +67,14 @@ install-debian: install install-doc
 	chmod +x $(ETC)/template-dkms-mkdeb/debian/rules
 	rm $(DOCDIR)/COPYING*
 	rm $(DOCDIR)/sample*
+
+install-debian-sysv: install-debian
+	mkdir -p $(INITD)
+	install -p -m 0755 dkms-service $(INITD)
+
+install-debian-systemd: install-debian
+	mkdir -p $(SYSTEMD)
+	install -p -m 0644 dkms-service.service $(SYSTEMD)
 
 TARBALL=$(ARCHIVE_DIR)/$(RELEASE_STRING).tar.gz
 tarball: $(TARBALL)

@@ -134,15 +134,16 @@ rm -rf $RPM_BUILD_ROOT
 %if 0%{?fedora} >= 20 || 0%{?rhel} >= 7 || 0%{?suse_version} >= 1315
 
 %post
-%systemd_post %{name}.service
-systemctl start %{name}.service ||:
+systemctl enable %{name}-service ||:
+systemctl daemon-reload
+systemctl start %{name}-service ||:
 
 %preun
-%systemctl stop %{name}.service ||:
-%systemd_preun %{name}.service
+systemctl stop %{name}-service ||:
 
 %postun
-systemd_postun %{name}.service
+systemctl disable %{name}-service ||:
+systemctl daemon-reload
 
 %else
 
@@ -163,7 +164,7 @@ service %{name}-service stop ||:
 %doc sample.spec sample.conf AUTHORS COPYING README.dkms
 
 %if 0%{?fedora} >= 20 || 0%{?rhel} >= 7 || 0%{?suse_version} >= 1315
-%{_unitdir}/%{name}.service
+%{_unitdir}/%{name}-service.service
 %else
 /etc/init.d/%{name}-service
 %endif

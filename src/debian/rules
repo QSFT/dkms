@@ -16,7 +16,13 @@ override_dh_auto_build:
 
 
 override_dh_install:
-	$(MAKE) install-debian DESTDIR=$(CURDIR)/debian/dkms
+	if `which systemctl` ; then \
+		$(MAKE) install-debian-systemd DESTDIR=$(CURDIR)/debian/dkms ; \
+	else \
+		$(MAKE) install-debian-sysv DESTDIR=$(CURDIR)/debian/dkms ; \
+	fi \
+	
+	cat 
 	dh_install
 	
 get-orig-source:
