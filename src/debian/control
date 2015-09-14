@@ -5,11 +5,12 @@ Maintainer: Dynamic Kernel Modules Support Team <pkg-dkms-maint@lists.alioth.deb
 Uploaders: David Paleino <dapal@debian.org>,
  Mario Limonciello <Mario_Limonciello@dell.com>,
  Giuseppe Iuculano <iuculano@debian.org>
+ Roman Fortunatov <roman.fortunatov@softheme.com>
 Build-Depends: debhelper (>= 7.0.50~), quilt
 Standards-Version: 3.9.2
 Homepage: http://linux.dell.com/dkms
-Vcs-Git: http://linux.dell.com/git/dkms.git 
-Vcs-Browser: http://linux.dell.com/git/dkms.git 
+Vcs-Git: git@github.com:Dell-AppAssure/dkms.git
+Vcs-Browser: git@github.com:Dell-AppAssure/dkms.git
 
 Package: dkms
 Architecture: all

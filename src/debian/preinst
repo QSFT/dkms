@@ -1,9 +1,37 @@
-#!/bin/sh
+#!/bin/bash
+
 set -e
 
-#DEBHELPER#
+log_start() {
+    echo -n "$@"
+}
 
-# snippet from http://www.dpkg.org/dpkg/ConffileHandling
+log_end() {
+    [ $1 -eq 0 ] && echo -e "\033[1;32m[Done]\033[m" || echo -e "\033[1;31m[Failed]\033[m"
+}
+
+
+add_service () {
+    log_start "Installing $1 service... "
+    if `which systemctl 1>/dev/null 2>&1` ; then
+        systemctl enable $1 1>/dev/null 2>&1
+    else
+        update-rc.d $1 defaults 1>/dev/null 2>&1
+    fi
+
+    log_end $?
+}
+
+del_service () {
+    log_start "Removing $1 service... "
+    if `which systemctl 1>/dev/null 2>&1` ; then
+        systemctl disable $1 1>/dev/null 2>&1
+    else
+        update-rc.d -f $1 remove 1>/dev/null 2>&1
+    fi
+
+    log_end $?
+}
 
 # Remove a no-longer used conffile
 rm_conffile() {
@@ -27,10 +55,10 @@ case "$1" in
 install|upgrade)
     if dpkg --compare-versions "$2" le "2.1.1.1-2"; then
         rm_conffile dkms "/etc/dkms/template-dkms-mkdeb/debian/postrm"
-	if [ -e "/etc/init.d/dkms_autoinstaller" ]; then
-		update-rc.d -f dkms_autoinstaller remove >/dev/null 2>&1
-		rm_conffile dkms "/etc/init.d/dkms_autoinstaller"
-	fi
+    if [ -e "/etc/init.d/dkms_autoinstaller" ]; then
+        del_service dkms_autoinstaller
+        rm_conffile dkms "/etc/init.d/dkms_autoinstaller"
+    fi
         rm_conffile dkms "/etc/init/dkms_autoinstaller.conf"
     fi
 
