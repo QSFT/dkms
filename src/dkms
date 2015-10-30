@@ -1532,6 +1532,14 @@ install_module()
             exit 6
     }
 
+    for obsolete_module in ${modules_conf_obsoletes[$index]//,/ }; do
+        if lsmod | grep $obsolete_module 1>/dev/null 2>&1 ; then
+            echo "DKMS: Trying to unload obsolete module with name $obsolete_module"
+            rmmod $obsolete_module
+        fi
+    done
+
+
     # Do remake_initrd things (save old initrd)
     [[ $remake_initrd ]] && ! make_initrd "$kernelver" "$arch" "$module" && {
         do_uninstall "$kernelver" "$arch"
