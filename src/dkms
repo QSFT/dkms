@@ -1586,7 +1586,7 @@ remove_weak_links()
 is_module_added() {
     [[ $1 && $2 ]] || return 1
     [[ -d $dkms_tree/$1/$2 ]] || return 2
-    [[ -L $dkms_tree/$1/$2/source || -d $dkms_tree/$1/$2/source ]];
+    [[ -L $dkms_tree/$1/$2/source && -d $dkms_tree/$1/$2/source ]];
 }
 
 is_module_built() {
